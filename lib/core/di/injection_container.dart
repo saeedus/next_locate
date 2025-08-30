@@ -12,12 +12,14 @@ import 'package:next_locate/features/check_in/domain/usecases/get_check_in_point
 import 'package:next_locate/features/check_in/presentation/cubit/create_check_in_point_cubit.dart';
 import 'package:next_locate/features/check_in/presentation/cubit/check_in_points_list_cubit.dart';
 
+import 'package:next_locate/features/user_actions/data/datasources/user_action_remote_data_source.dart'; // Added import
+import 'package:next_locate/features/user_actions/data/datasources/user_action_remote_data_source_impl.dart'; // Added import
+import 'package:next_locate/features/user_actions/data/repositories/user_action_repository_impl.dart'; // Added import
 import 'package:next_locate/features/user_actions/domain/repositories/user_action_repository.dart';
 import 'package:next_locate/features/user_actions/domain/usecases/check_in_user_use_case.dart';
 import 'package:next_locate/features/user_actions/domain/usecases/check_out_user_use_case.dart';
 import 'package:next_locate/features/user_actions/domain/usecases/get_current_user_check_in_status_use_case.dart';
 import 'package:next_locate/features/user_actions/presentation/cubit/user_action_cubit.dart';
-// TODO: Import UserActionRepositoryImpl and UserActionRemoteDataSourceImpl once created
 
 final sl = GetIt.instance;
 
@@ -41,16 +43,14 @@ void init() {
   // Repositories
   sl.registerLazySingleton<CheckInRepository>(
       () => CheckInRepositoryImpl(remoteDataSource: sl()));
-  // TODO: Register UserActionRepository once its implementation exists
-  // For now, let's register a placeholder if needed for the app to compile,
-  // but this will need to be replaced by a real implementation.
-  // sl.registerLazySingleton<UserActionRepository>(() => UserActionRepositoryImpl(remoteDataSource: sl()));
+  sl.registerLazySingleton<UserActionRepository>(
+      () => UserActionRepositoryImpl(remoteDataSource: sl())); // Updated registration
 
   // Data sources
   sl.registerLazySingleton<CheckInRemoteDataSource>(
       () => CheckInRemoteDataSourceImpl(firestore: sl()));
-  // TODO: Register UserActionRemoteDataSource once its implementation exists
-  // sl.registerLazySingleton<UserActionRemoteDataSource>(() => UserActionRemoteDataSourceImpl(firestore: sl()));
+  sl.registerLazySingleton<UserActionRemoteDataSource>( // Updated registration
+      () => UserActionRemoteDataSourceImpl(firestore: sl()));
 
   // External
   sl.registerLazySingleton(() => FirebaseFirestore.instance);

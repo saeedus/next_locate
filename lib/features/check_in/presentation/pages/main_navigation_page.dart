@@ -4,7 +4,8 @@ import 'package:next_locate/core/di/injection_container.dart';
 import 'package:next_locate/features/check_in/presentation/cubit/create_check_in_point_cubit.dart';
 import 'package:next_locate/features/check_in/presentation/cubit/check_in_points_list_cubit.dart';
 import 'package:next_locate/features/check_in/presentation/pages/create_check_in_point_page.dart';
-import 'package:next_locate/features/user_actions/presentation/pages/user_actions_page.dart'; // Added import
+import 'package:next_locate/features/user_actions/presentation/cubit/user_action_cubit.dart'; // Added import
+import 'package:next_locate/features/user_actions/presentation/pages/user_actions_page.dart';
 import '../cubit/create_check_in_point_state.dart';
 
 class MainNavigationPage extends StatelessWidget {
@@ -19,6 +20,9 @@ class MainNavigationPage extends StatelessWidget {
         ),
         BlocProvider(
           create: (context) => sl<CheckInPointsListCubit>()..loadCheckInPoints(),
+        ),
+        BlocProvider( // Added UserActionCubit provider
+          create: (context) => sl<UserActionCubit>()..fetchCurrentUserStatus(),
         ),
       ],
       child: const _MainNavigationPageView(),
@@ -38,7 +42,7 @@ class _MainNavigationPageViewState extends State<_MainNavigationPageView> {
 
   static final List<Widget> _widgetOptions = <Widget>[
     const CreateCheckInPointPage(),
-    const UserActionsPage(), // Added UserActionsPage
+    const UserActionsPage(),
   ];
 
   void _onItemTapped(int index) {
