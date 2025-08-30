@@ -28,7 +28,25 @@ class CheckInPointModel extends CheckInPoint {
       'radius': radius,
       'createdBy': createdBy,
       'createdAt': Timestamp.fromDate(createdAt),
+      // Note: 'id' is typically not stored as a field in the document itself,
+      // as the document ID serves this purpose.
     };
+  }
+
+  CheckInPointModel copyWith({
+    String? id,
+    LatLng? location,
+    double? radius,
+    String? createdBy,
+    DateTime? createdAt,
+  }) {
+    return CheckInPointModel(
+      id: id ?? this.id,
+      location: location ?? this.location,
+      radius: radius ?? this.radius,
+      createdBy: createdBy ?? this.createdBy,
+      createdAt: createdAt ?? this.createdAt,
+    );
   }
 
   factory CheckInPointModel.fromEntity(CheckInPoint entity) {
