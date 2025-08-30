@@ -1,17 +1,33 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
 import 'package:next_locate/features/check_in/presentation/cubit/create_check_in_point_cubit.dart';
 import 'package:next_locate/features/check_in/presentation/cubit/create_check_in_point_state.dart';
 
-class CreateCheckInPointPage extends StatelessWidget {
+class CreateCheckInPointPage extends StatefulWidget {
   const CreateCheckInPointPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final MapController mapController = MapController();
+  State<CreateCheckInPointPage> createState() => _CreateCheckInPointPageState();
+}
 
+class _CreateCheckInPointPageState extends State<CreateCheckInPointPage> {
+  late MapController _mapController;
+
+  @override
+  void initState() {
+    super.initState();
+    _mapController = MapController();
+  }
+
+  @override
+  void dispose() {
+    _mapController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Create Check-in Point'),
@@ -23,7 +39,11 @@ class CreateCheckInPointPage extends StatelessWidget {
               SnackBar(content: Text(state.message)),
             );
           } else if (state is CreateCheckInPointLoaded) {
-            mapController.move(state.currentLocation, 15.0);
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                _mapController.move(state.currentLocation, 15.0);
+              }
+            });
           }
         },
         builder: (context, state) {
@@ -34,7 +54,7 @@ class CreateCheckInPointPage extends StatelessWidget {
             return Stack(
               children: [
                 FlutterMap(
-                  mapController: mapController,
+                  mapController: _mapController,
                   options: MapOptions(
                     initialCenter: state.currentLocation,
                     initialZoom: 15.0,
