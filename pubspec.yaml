@@ -38,10 +38,11 @@ dependencies:
   equatable: ^2.0.7
   dartz: ^0.10.1
   geolocator: ^14.0.2
-  google_maps_flutter: ^2.12.3
   get_it: ^8.2.0
   geocoding: ^4.0.0
   cloud_firestore: ^6.0.0
+  permission_handler: ^12.0.1
+  flutter_map: ^8.2.1
 
 dev_dependencies:
   flutter_test:

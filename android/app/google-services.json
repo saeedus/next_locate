@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "66352542124",
+    "project_id": "nextlocate",
+    "storage_bucket": "nextlocate.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:66352542124:android:e12ebfa1651798acef8a09",
+        "android_client_info": {
+          "package_name": "com.saeedussalehin.next_locate"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCZRuerE-G6wRrG3OUK4oFD32Os07cFPj0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
