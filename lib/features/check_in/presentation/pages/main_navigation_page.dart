@@ -4,7 +4,8 @@ import 'package:next_locate/core/di/injection_container.dart';
 import 'package:next_locate/features/check_in/presentation/cubit/create_check_in_point_cubit.dart';
 import 'package:next_locate/features/check_in/presentation/cubit/check_in_points_list_cubit.dart';
 import 'package:next_locate/features/check_in/presentation/pages/create_check_in_point_page.dart';
-import 'package:next_locate/features/user_actions/presentation/pages/user_actions_page.dart'; // Added import
+import 'package:next_locate/features/check_in/presentation/pages/check_in_points_list_page.dart';
+
 import '../cubit/create_check_in_point_state.dart';
 
 class MainNavigationPage extends StatelessWidget {
@@ -34,14 +35,18 @@ class _MainNavigationPageView extends StatefulWidget {
 }
 
 class _MainNavigationPageViewState extends State<_MainNavigationPageView> {
-  int _selectedIndex = 0; 
+  int _selectedIndex = 0;
 
   static final List<Widget> _widgetOptions = <Widget>[
     const CreateCheckInPointPage(),
-    const UserActionsPage(), // Added UserActionsPage
+    const CheckInPointsListPage(),
   ];
 
   void _onItemTapped(int index) {
+    // If switching to the map tab, ensure data is fresh
+    if (index == 1 && _selectedIndex != 1) {
+      context.read<CheckInPointsListCubit>().loadCheckInPoints();
+    }
     setState(() {
       _selectedIndex = index;
     });
@@ -52,12 +57,18 @@ class _MainNavigationPageViewState extends State<_MainNavigationPageView> {
     return BlocListener<CreateCheckInPointCubit, CreateCheckInPointState>(
       listener: (context, state) {
         if (state is CreateCheckInPointSuccess) {
+          // Show SnackBar for success
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Check-in point created successfully!')),
           );
+          // Reload the list of check-in points
           context.read<CheckInPointsListCubit>().loadCheckInPoints();
-          // No need to switch tabs explicitly if the user intends to stay or if CreateCheckInPointPage handles its own refresh
+          // Switch to the map view tab
+          setState(() {
+            _selectedIndex = 1;
+          });
         }
+        // Optionally, handle CreateCheckInPointFailure here too if needed
       },
       child: Scaffold(
         body: IndexedStack(
@@ -67,12 +78,12 @@ class _MainNavigationPageViewState extends State<_MainNavigationPageView> {
         bottomNavigationBar: BottomNavigationBar(
           items: const <BottomNavigationBarItem>[
             BottomNavigationBarItem(
-              icon: Icon(Icons.map_outlined),
-              label: 'Map & Create',
+              icon: Icon(Icons.add_location_alt),
+              label: 'Create Check-in',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.person_pin_circle_outlined),
-              label: 'User Actions',
+              icon: Icon(Icons.list_alt),
+              label: 'View Check-ins',
             ),
           ],
           currentIndex: _selectedIndex,
