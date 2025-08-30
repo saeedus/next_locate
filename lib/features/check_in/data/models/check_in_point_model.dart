@@ -4,18 +4,12 @@ import 'package:next_locate/features/check_in/domain/entities/check_in_point.dar
 
 class CheckInPointModel extends CheckInPoint {
   const CheckInPointModel({
-    required String id,
-    required LatLng location,
-    required double radius,
-    required String createdBy,
-    required DateTime createdAt,
-  }) : super(
-          id: id,
-          location: location,
-          radius: radius,
-          createdBy: createdBy,
-          createdAt: createdAt,
-        );
+    required super.id,
+    required super.location,
+    required super.radius,
+    required super.createdBy,
+    required super.createdAt,
+  });
 
   factory CheckInPointModel.fromFirestore(DocumentSnapshot doc) {
     Map data = doc.data() as Map<String, dynamic>;
