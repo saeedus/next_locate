@@ -2,6 +2,15 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:next_locate/features/check_in/data/models/check_in_point_model.dart';
 import 'package:next_locate/features/user_actions/data/datasources/user_action_remote_data_source.dart';
 
+// Custom Exception
+class ActiveCheckInExistsException implements Exception {
+  final String message;
+  ActiveCheckInExistsException(this.message);
+
+  @override
+  String toString() => message;
+}
+
 class UserActionRemoteDataSourceImpl implements UserActionRemoteDataSource {
   final FirebaseFirestore firestore;
 
@@ -9,8 +18,19 @@ class UserActionRemoteDataSourceImpl implements UserActionRemoteDataSource {
 
   @override
   Future<String> recordUserCheckIn(String userId, CheckInPointModel checkInPoint, DateTime timestamp) async {
-    // Assuming 'user_check_ins' collection stores documents with a 'userId' field
-    // and other check-in details.
+    // Check for existing active check-in
+    final activeCheckInQuery = await firestore
+        .collection('user_check_ins')
+        .where('userId', isEqualTo: userId)
+        .where('check_out_timestamp', isNull: true)
+        .limit(1)
+        .get();
+
+    if (activeCheckInQuery.docs.isNotEmpty) {
+      throw ActiveCheckInExistsException('User already has an active check-in.');
+    }
+
+    // No active check-in found, proceed to create a new one
     final docRef = await firestore.collection('user_check_ins').add({
       ...checkInPoint.toFirestore(), // Spread the model's data
       'userId': userId,
