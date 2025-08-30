@@ -9,6 +9,16 @@ class CheckInRemoteDataSourceImpl implements CheckInRemoteDataSource {
 
   @override
   Future<void> createCheckInPoint(CheckInPointModel checkInPoint) async {
-    await firestore.collection('check_in_points').add(checkInPoint.toFirestore());
+    await firestore
+        .collection('check_in_points')
+        .add(checkInPoint.toFirestore());
+  }
+
+  @override
+  Future<List<CheckInPointModel>> getAllCheckInPoints() async {
+    final snapshot = await firestore.collection('check_in_points').get();
+    return snapshot.docs
+        .map((doc) => CheckInPointModel.fromFirestore(doc))
+        .toList();
   }
 }

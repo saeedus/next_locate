@@ -14,15 +14,22 @@ class CheckInRepositoryImpl implements CheckInRepository {
   Future<Either<Failure, void>> createCheckInPoint(
       CheckInPoint checkInPoint) async {
     try {
-      final checkInPointModel = CheckInPointModel(
-        id: checkInPoint.id,
-        location: checkInPoint.location,
-        radius: checkInPoint.radius,
-        createdBy: checkInPoint.createdBy,
-        createdAt: checkInPoint.createdAt,
-      );
+      final checkInPointModel = CheckInPointModel.fromEntity(checkInPoint);
       await remoteDataSource.createCheckInPoint(checkInPointModel);
       return const Right(null);
+    } catch (e) {
+      return Left(ServerFailure());
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<CheckInPoint>>> getAllCheckInPoints() async {
+    try {
+      final checkInPointModels = await remoteDataSource.getAllCheckInPoints();
+      final checkInPoints = checkInPointModels
+          .map((model) => model.toEntity())
+          .toList();
+      return Right(checkInPoints);
     } catch (e) {
       return Left(ServerFailure());
     }

@@ -5,7 +5,9 @@ import 'package:next_locate/features/check_in/data/datasources/check_in_remote_d
 import 'package:next_locate/features/check_in/data/repositories/check_in_repository_impl.dart';
 import 'package:next_locate/features/check_in/domain/repositories/check_in_repository.dart';
 import 'package:next_locate/features/check_in/domain/usecases/create_check_in_point.dart';
+import 'package:next_locate/features/check_in/domain/usecases/get_check_in_points_use_case.dart';
 import 'package:next_locate/features/check_in/presentation/cubit/create_check_in_point_cubit.dart';
+import 'package:next_locate/features/check_in/presentation/cubit/check_in_points_list_cubit.dart';
 import 'package:geolocator_platform_interface/geolocator_platform_interface.dart';
 
 final sl = GetIt.instance;
@@ -13,9 +15,11 @@ final sl = GetIt.instance;
 void init() {
   // Cubits
   sl.registerFactory(() => CreateCheckInPointCubit(createCheckInPointUseCase: sl(), geolocatorPlatform: sl()));
+  sl.registerFactory(() => CheckInPointsListCubit(getCheckInPointsUseCase: sl()));
 
   // Use cases
   sl.registerLazySingleton(() => CreateCheckInPointUseCase(sl()));
+  sl.registerLazySingleton(() => GetCheckInPointsUseCase(sl()));
 
   // Repositories
   sl.registerLazySingleton<CheckInRepository>(

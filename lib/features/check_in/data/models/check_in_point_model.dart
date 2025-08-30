@@ -22,9 +22,9 @@ class CheckInPointModel extends CheckInPoint {
     return CheckInPointModel(
       id: doc.id,
       location: LatLng(data['location'].latitude, data['location'].longitude),
-      radius: data['radius'],
+      radius: (data['radius'] as num).toDouble(),
       createdBy: data['createdBy'],
-      createdAt: data['createdAt'].toDate(),
+      createdAt: (data['createdAt'] as Timestamp).toDate(),
     );
   }
 
@@ -33,7 +33,27 @@ class CheckInPointModel extends CheckInPoint {
       'location': GeoPoint(location.latitude, location.longitude),
       'radius': radius,
       'createdBy': createdBy,
-      'createdAt': createdAt,
+      'createdAt': Timestamp.fromDate(createdAt),
     };
+  }
+
+  factory CheckInPointModel.fromEntity(CheckInPoint entity) {
+    return CheckInPointModel(
+      id: entity.id,
+      location: entity.location,
+      radius: entity.radius,
+      createdBy: entity.createdBy,
+      createdAt: entity.createdAt,
+    );
+  }
+
+  CheckInPoint toEntity() {
+    return CheckInPoint(
+      id: id,
+      location: location,
+      radius: radius,
+      createdBy: createdBy,
+      createdAt: createdAt,
+    );
   }
 }

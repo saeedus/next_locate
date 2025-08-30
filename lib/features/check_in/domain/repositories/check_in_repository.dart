@@ -4,4 +4,5 @@ import 'package:next_locate/features/check_in/domain/entities/check_in_point.dar
 
 abstract class CheckInRepository {
   Future<Either<Failure, void>> createCheckInPoint(CheckInPoint checkInPoint);
+  Future<Either<Failure, List<CheckInPoint>>> getAllCheckInPoints();
 }
