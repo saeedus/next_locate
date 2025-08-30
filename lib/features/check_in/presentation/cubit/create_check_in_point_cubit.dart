@@ -4,63 +4,99 @@ import 'package:latlong2/latlong.dart';
 import 'package:next_locate/features/check_in/domain/entities/check_in_point.dart';
 import 'package:next_locate/features/check_in/domain/usecases/create_check_in_point.dart';
 import 'package:next_locate/features/check_in/presentation/cubit/create_check_in_point_state.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 class CreateCheckInPointCubit extends Cubit<CreateCheckInPointState> {
-  final CreateCheckInPoint createCheckInPoint;
+  final CreateCheckInPointUseCase _createCheckInPointUseCase;
+  final GeolocatorPlatform _geolocatorPlatform;
 
-  CreateCheckInPointCubit({required this.createCheckInPoint}) : super(CreateCheckInPointInitial());
+  CreateCheckInPointCubit({
+    required CreateCheckInPointUseCase createCheckInPointUseCase,
+    required GeolocatorPlatform geolocatorPlatform,
+  }) : _createCheckInPointUseCase = createCheckInPointUseCase,
+       _geolocatorPlatform = geolocatorPlatform,
+       super(CreateCheckInPointInitial()) {
+    getCurrentLocation();
+  }
 
   Future<void> getCurrentLocation() async {
     emit(CreateCheckInPointLoading());
-    var status = await Permission.location.request();
-    if (status.isGranted) {
-      try {
-        Position position = await Geolocator.getCurrentPosition(
-            desiredAccuracy: LocationAccuracy.high);
-        emit(CreateCheckInPointLoaded(
+    try {
+      final position = await _determinePosition();
+      emit(
+        CreateCheckInPointLoaded(
           currentLocation: LatLng(position.latitude, position.longitude),
-          radius: 100,
-        ));
-      } catch (e) {
-        emit(const CreateCheckInPointFailure('Failed to get current location.'));
-      }
-    } else {
-      emit(const CreateCheckInPointFailure('Location permission denied.'));
+          radius: 200,
+        ),
+      );
+    } catch (e) {
+      emit(CreateCheckInPointFailure(e.toString()));
     }
   }
 
   void selectLocation(LatLng location) {
     if (state is CreateCheckInPointLoaded) {
-      final loadedState = state as CreateCheckInPointLoaded;
-      emit(loadedState.copyWith(selectedLocation: location));
+      final currentState = state as CreateCheckInPointLoaded;
+      emit(currentState.copyWith(selectedLocation: location));
     }
   }
 
   void updateRadius(double radius) {
     if (state is CreateCheckInPointLoaded) {
-      final loadedState = state as CreateCheckInPointLoaded;
-      emit(loadedState.copyWith(radius: radius));
+      final currentState = state as CreateCheckInPointLoaded;
+      emit(currentState.copyWith(radius: radius));
     }
   }
 
   Future<void> saveCheckInPoint() async {
     if (state is CreateCheckInPointLoaded) {
-      final loadedState = state as CreateCheckInPointLoaded;
-      if (loadedState.selectedLocation != null) {
-        final checkInPoint = CheckInPoint(
-          id: '', // Firestore will generate the ID
-          location: loadedState.selectedLocation!,
-          radius: loadedState.radius,
-          createdBy: '', // TODO: Get the current user ID
-          createdAt: DateTime.now(),
-        );
-        final result = await createCheckInPoint(checkInPoint);
-        result.fold(
-          (failure) => emit(const CreateCheckInPointFailure('Failed to save check-in point.')),
-          (_) => emit(loadedState), // Or a success state
-        );
+      final currentState = state as CreateCheckInPointLoaded;
+      if (currentState.selectedLocation == null) return;
+
+      final point = CheckInPoint(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        location: currentState.selectedLocation!,
+        radius: currentState.radius,
+        createdBy: "SYSTEM_USER",
+        createdAt: DateTime.now(),
+      );
+
+      final result = await _createCheckInPointUseCase(point);
+      result.fold(
+        (failure) => emit(CreateCheckInPointFailure(failure.toString())),
+        (_) {
+          emit(
+            const CreateCheckInPointSuccess(
+              'Check-in point saved successfully',
+            ),
+          );
+        },
+      );
+    }
+  }
+
+  Future<Position> _determinePosition() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    serviceEnabled = await _geolocatorPlatform.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      throw Exception('Location services are disabled.');
+    }
+
+    permission = await _geolocatorPlatform.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await _geolocatorPlatform.requestPermission();
+      if (permission == LocationPermission.denied) {
+        throw Exception('Location permissions are denied');
       }
     }
+
+    if (permission == LocationPermission.deniedForever) {
+      throw Exception(
+        'Location permissions are permanently denied, we cannot request permissions.',
+      );
+    }
+
+    return await _geolocatorPlatform.getCurrentPosition();
   }
 }

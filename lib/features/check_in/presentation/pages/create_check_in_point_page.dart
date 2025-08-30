@@ -38,6 +38,10 @@ class _CreateCheckInPointPageState extends State<CreateCheckInPointPage> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text(state.message)),
             );
+          } else if (state is CreateCheckInPointSuccess) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(state.message)),
+            );
           } else if (state is CreateCheckInPointLoaded) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted) {

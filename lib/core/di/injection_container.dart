@@ -6,15 +6,16 @@ import 'package:next_locate/features/check_in/data/repositories/check_in_reposit
 import 'package:next_locate/features/check_in/domain/repositories/check_in_repository.dart';
 import 'package:next_locate/features/check_in/domain/usecases/create_check_in_point.dart';
 import 'package:next_locate/features/check_in/presentation/cubit/create_check_in_point_cubit.dart';
+import 'package:geolocator_platform_interface/geolocator_platform_interface.dart';
 
 final sl = GetIt.instance;
 
 void init() {
   // Cubits
-  sl.registerFactory(() => CreateCheckInPointCubit(createCheckInPoint: sl()));
+  sl.registerFactory(() => CreateCheckInPointCubit(createCheckInPointUseCase: sl(), geolocatorPlatform: sl()));
 
   // Use cases
-  sl.registerLazySingleton(() => CreateCheckInPoint(sl()));
+  sl.registerLazySingleton(() => CreateCheckInPointUseCase(sl()));
 
   // Repositories
   sl.registerLazySingleton<CheckInRepository>(
@@ -26,4 +27,5 @@ void init() {
 
   // External
   sl.registerLazySingleton(() => FirebaseFirestore.instance);
+  sl.registerLazySingleton<GeolocatorPlatform>(() => GeolocatorPlatform.instance);
 }

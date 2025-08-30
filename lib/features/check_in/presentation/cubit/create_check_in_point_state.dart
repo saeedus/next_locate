@@ -39,6 +39,15 @@ class CreateCheckInPointLoaded extends CreateCheckInPointState {
   }
 }
 
+class CreateCheckInPointSuccess extends CreateCheckInPointState {
+  final String message;
+
+  const CreateCheckInPointSuccess(this.message);
+
+  @override
+  List<Object> get props => [message];
+}
+
 class CreateCheckInPointFailure extends CreateCheckInPointState {
   final String message;
 
