@@ -3,6 +3,7 @@ import 'package:next_locate/features/check_in/domain/entities/check_in_point.dar
 import 'package:next_locate/features/user_actions/data/datasources/user_action_remote_data_source.dart';
 import 'package:next_locate/features/user_actions/domain/repositories/user_action_repository.dart';
 import 'package:next_locate/features/check_in/data/models/check_in_point_model.dart';
+import 'package:next_locate/features/user_actions/data/datasources/user_action_remote_data_source_impl.dart'; // Import the exception
 
 import '../../../../core/errors/failure.dart'; // Assuming CheckInPointModel is used
 
@@ -17,6 +18,8 @@ class UserActionRepositoryImpl implements UserActionRepository {
       final checkInPointModel = CheckInPointModel.fromEntity(checkInPoint); // Conversion might be needed
       final result = await remoteDataSource.recordUserCheckIn(userId, checkInPointModel, timestamp);
       return Right(result);
+    } on ActiveCheckInExistsException catch (e) { // Catch the specific exception
+      return Left(ServerFailure(message: e.message));
     } catch (e) {
       return Left(ServerFailure());
     }
