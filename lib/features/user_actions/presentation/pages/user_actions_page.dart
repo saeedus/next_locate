@@ -22,6 +22,9 @@ class _UserActionsPageState extends State<UserActionsPage> {
   StreamSubscription<Position>? _positionStreamSubscription;
   final MapController _mapController = MapController();
 
+  CheckInPoint? _currentCheckInPointForDisplay;
+  final Map<String, int> _lastKnownCountForPointId = {};
+
   @override
   void initState() {
     super.initState();
@@ -72,7 +75,7 @@ class _UserActionsPageState extends State<UserActionsPage> {
         });
         _mapController.move(
           LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
-          14.0, 
+          14.0,
         );
       }
 
@@ -82,8 +85,6 @@ class _UserActionsPageState extends State<UserActionsPage> {
             setState(() {
               _currentPosition = position;
             });
-            // Optionally, move map to new position if user hasn't interacted
-            // For now, marker updates, map stays unless moved by user or _mapController.move
           }
         }, onError: (e) {
         if (mounted) {
@@ -106,6 +107,45 @@ class _UserActionsPageState extends State<UserActionsPage> {
     super.dispose();
   }
 
+  Widget _buildCheckInCountWidget(UserActionState state, CheckInPoint? currentCheckInPoint) {
+    if (currentCheckInPoint == null) {
+      return const SizedBox.shrink();
+    }
+
+    String textToShow;
+    Widget? trailingWidget;
+
+    if (state is UserActionCheckInCountLoading && state.checkInPointId == currentCheckInPoint.id) {
+      textToShow = 'People here: ';
+      trailingWidget = const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2));
+    } else if (state is UserActionCheckInCountLoaded && state.checkInPointId == currentCheckInPoint.id) {
+      textToShow = 'People here: ${state.count}';
+    } else if (state is UserActionCheckInCountError && state.checkInPointId == currentCheckInPoint.id) {
+      textToShow = 'People here: Error';
+    } else if (_lastKnownCountForPointId.containsKey(currentCheckInPoint.id)) {
+      textToShow = 'People here: ${_lastKnownCountForPointId[currentCheckInPoint.id]}';
+    } else {
+      // Default to loading if no specific state, as cubit should be fetching
+      textToShow = 'People here: ';
+      trailingWidget = const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2));
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(textToShow, style: Theme.of(context).textTheme.titleSmall),
+          if (trailingWidget != null) ...[
+            const SizedBox(width: 8),
+            trailingWidget,
+          ]
+        ],
+      ),
+    );
+  }
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -124,15 +164,28 @@ class _UserActionsPageState extends State<UserActionsPage> {
               SnackBar(
                   content: Text(state.error), backgroundColor: Colors.red),
             );
+          } else if (state is UserActionStatusLoaded) {
+            setState(() {
+              _currentCheckInPointForDisplay = state.currentCheckInPoint;
+              if (state.currentCheckInPoint == null) {
+                _lastKnownCountForPointId.clear();
+              }
+            });
+          } else if (state is UserActionCheckInCountLoaded) {
+             setState(() {
+              _lastKnownCountForPointId[state.checkInPointId] = state.count;
+            });
           }
         },
         builder: (context, state) {
-          bool isLoading = state is UserActionInProgress ||
-              state is UserActionStatusLoading;
-          CheckInPoint? currentCheckIn;
+          bool isLoadingOverall = state is UserActionInProgress || (state is UserActionStatusLoading && _currentPosition == null) ;
+
+          CheckInPoint? displayCheckInPoint = _currentCheckInPointForDisplay;
+           // If UserActionStatusLoaded just came, it might override displayCheckInPoint set in listener
           if (state is UserActionStatusLoaded) {
-            currentCheckIn = state.currentCheckInPoint;
+            displayCheckInPoint = state.currentCheckInPoint;
           }
+
 
           List<Marker> markers = [];
           List<CircleMarker> circles = [];
@@ -149,9 +202,9 @@ class _UserActionsPageState extends State<UserActionsPage> {
             );
           }
 
-          if (currentCheckIn != null) {
-            final checkInLatLng = LatLng(currentCheckIn.location.latitude,
-                currentCheckIn.location.longitude);
+          if (displayCheckInPoint != null) {
+            final checkInLatLng = LatLng(displayCheckInPoint.location.latitude,
+                displayCheckInPoint.location.longitude);
             markers.add(
               Marker(
                 width: 80.0,
@@ -160,7 +213,7 @@ class _UserActionsPageState extends State<UserActionsPage> {
                 child: const Icon(Icons.location_pin, color: Colors.red, size: 40),
               ),
             );
-            if (currentCheckIn.radius > 0) {
+            if (displayCheckInPoint.radius > 0) {
               circles.add(
                 CircleMarker(
                   point: checkInLatLng,
@@ -168,7 +221,7 @@ class _UserActionsPageState extends State<UserActionsPage> {
                   borderColor: Colors.red.withOpacity(0.5),
                   borderStrokeWidth: 1.5,
                   useRadiusInMeter: true,
-                  radius: currentCheckIn.radius.toDouble(),
+                  radius: displayCheckInPoint.radius.toDouble(),
                 ),
               );
             }
@@ -207,28 +260,34 @@ class _UserActionsPageState extends State<UserActionsPage> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: <Widget>[
-                        if (state is UserActionStatusLoading && _currentPosition == null)
-                          const Center(child: Padding(
-                            padding: EdgeInsets.symmetric(vertical: 20.0),
-                            child: CircularProgressIndicator(),
-                          )),
-                        if (state is UserActionStatusLoaded)
+                        if (isLoadingOverall && displayCheckInPoint == null)
+                           Center(child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 20.0),
+                            child: isLoadingOverall ? const CircularProgressIndicator() : const Text("Not Checked In"),
+                          ))
+                        else
                           Card(
                             margin: const EdgeInsets.symmetric(vertical: 8.0),
                             child: Padding(
                               padding: const EdgeInsets.all(16.0),
-                              child: Text(
-                                currentCheckIn != null
-                                    ? 'Checked In: ${currentCheckIn.location.latitude.toStringAsFixed(4)}, ${currentCheckIn.location.longitude.toStringAsFixed(4)}\nRadius: ${currentCheckIn.radius}m'
-                                    : 'Currently Not Checked In',
-                                style: Theme.of(context).textTheme.titleMedium,
-                                textAlign: TextAlign.center,
+                              child: Column(
+                                children: [
+                                  Text(
+                                    displayCheckInPoint != null
+                                        ? 'Checked In: ${displayCheckInPoint.location.latitude.toStringAsFixed(4)}, ${displayCheckInPoint.location.longitude.toStringAsFixed(4)}\nRadius: ${displayCheckInPoint.radius}m'
+                                        : 'Currently Not Checked In',
+                                    style: Theme.of(context).textTheme.titleMedium,
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  if (displayCheckInPoint != null)
+                                     _buildCheckInCountWidget(state, displayCheckInPoint),
+                                ],
                               ),
                             ),
                           ),
                         const SizedBox(height: 10),
                         ElevatedButton(
-                          onPressed: isLoading || currentCheckIn != null
+                          onPressed: isLoadingOverall || displayCheckInPoint != null
                               ? null
                               : () => context
                                   .read<UserActionCubit>()
@@ -236,13 +295,13 @@ class _UserActionsPageState extends State<UserActionsPage> {
                           style: ElevatedButton.styleFrom(
                               padding:
                                   const EdgeInsets.symmetric(vertical: 12)),
-                          child: isLoading && currentCheckIn == null
+                          child: (state is UserActionInProgress && displayCheckInPoint == null)
                               ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3))
                               : const Text('User Check In'),
                         ),
                         const SizedBox(height: 10),
                         ElevatedButton(
-                          onPressed: isLoading || currentCheckIn == null
+                          onPressed: isLoadingOverall || displayCheckInPoint == null
                               ? null
                               : () => context
                                   .read<UserActionCubit>()
@@ -250,7 +309,7 @@ class _UserActionsPageState extends State<UserActionsPage> {
                           style: ElevatedButton.styleFrom(
                               padding:
                                   const EdgeInsets.symmetric(vertical: 12)),
-                          child: isLoading && currentCheckIn != null
+                          child: (state is UserActionInProgress && displayCheckInPoint != null)
                               ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3))
                               : const Text('User Check Out'),
                         ),

@@ -43,3 +43,32 @@ class UserActionStatusLoaded extends UserActionState {
   @override
   List<Object?> get props => [currentCheckInPoint];
 }
+
+// States for check-in count
+class UserActionCheckInCountLoading extends UserActionState {
+  final String checkInPointId;
+  const UserActionCheckInCountLoading(this.checkInPointId);
+
+  @override
+  List<Object?> get props => [checkInPointId];
+}
+
+class UserActionCheckInCountLoaded extends UserActionState {
+  final String checkInPointId;
+  final int count;
+
+  const UserActionCheckInCountLoaded(this.checkInPointId, this.count);
+
+  @override
+  List<Object?> get props => [checkInPointId, count];
+}
+
+class UserActionCheckInCountError extends UserActionState {
+  final String checkInPointId;
+  final String error;
+
+  const UserActionCheckInCountError(this.checkInPointId, this.error);
+
+  @override
+  List<Object?> get props => [checkInPointId, error];
+}

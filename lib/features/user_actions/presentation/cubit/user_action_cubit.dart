@@ -1,4 +1,7 @@
 
+import 'dart:async';
+import 'dart:math'; // For Random
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../check_in/domain/entities/check_in_point.dart';
@@ -12,8 +15,9 @@ class UserActionCubit extends Cubit<UserActionState> {
   final CheckOutUserUseCase _checkOutUserUseCase;
   final GetCurrentUserCheckInStatusUseCase _getCurrentUserCheckInStatusUseCase;
 
-  // Assume a fixed userId for now. In a real app, this would come from an auth service.
   final String _userId = 'test_user_123';
+  Timer? _checkInCountTimer;
+  CheckInPoint? _currentActiveCheckInPointForCount;
 
   UserActionCubit({
     required CheckInUserUseCase checkInUserUseCase,
@@ -30,8 +34,20 @@ class UserActionCubit extends Cubit<UserActionState> {
       GetCurrentUserCheckInStatusUseCaseParams(userId: _userId),
     );
     result.fold(
-      (failure) => emit(UserActionFailure(failure.toString())),
-      (checkInPoint) => emit(UserActionStatusLoaded(checkInPoint)),
+      (failure) {
+        emit(UserActionFailure(failure.toString()));
+        _cancelCheckInCountTimer();
+        _currentActiveCheckInPointForCount = null;
+      },
+      (checkInPoint) {
+        emit(UserActionStatusLoaded(checkInPoint));
+        _currentActiveCheckInPointForCount = checkInPoint;
+        if (checkInPoint != null) {
+          _startOrUpdateCheckInCountFetching(checkInPoint.id);
+        } else {
+          _cancelCheckInCountTimer();
+        }
+      },
     );
   }
 
@@ -43,11 +59,13 @@ class UserActionCubit extends Cubit<UserActionState> {
     result.fold(
       (failure) {
         emit(UserActionFailure(failure.toString()));
-        fetchCurrentUserStatus(); // Refresh status even on failure
+        // Optionally fetch status to reflect potential partial failure or backend state
+        fetchCurrentUserStatus(); 
       },
       (message) {
         emit(UserActionSuccess(message));
-        fetchCurrentUserStatus(); // Refresh status on success
+        // After successful check-in, status will be refreshed, which will then trigger count fetching
+        fetchCurrentUserStatus(); 
       },
     );
   }
@@ -60,12 +78,54 @@ class UserActionCubit extends Cubit<UserActionState> {
     result.fold(
       (failure) {
         emit(UserActionFailure(failure.toString()));
-        fetchCurrentUserStatus(); // Refresh status even on failure
+         // Optionally fetch status
+        fetchCurrentUserStatus();
       },
       (message) {
         emit(UserActionSuccess(message));
-        fetchCurrentUserStatus(); // Refresh status on success
+        _cancelCheckInCountTimer(); 
+        _currentActiveCheckInPointForCount = null;
+        fetchCurrentUserStatus();
       },
     );
+  }
+
+  void _startOrUpdateCheckInCountFetching(String checkInPointId) {
+    _cancelCheckInCountTimer(); // Cancel any existing timer
+    _fetchCheckInCount(checkInPointId); // Fetch immediately
+    _checkInCountTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      _fetchCheckInCount(checkInPointId);
+    });
+  }
+
+  Future<void> _fetchCheckInCount(String checkInPointId) async {
+    // Only proceed if this is still the active check-in point
+    if (_currentActiveCheckInPointForCount?.id != checkInPointId) {
+      _cancelCheckInCountTimer();
+      return;
+    }
+
+    emit(UserActionCheckInCountLoading(checkInPointId));
+    try {
+      // Simulate network delay and response
+      await Future.delayed(const Duration(milliseconds: 750));
+      // Simulate fetching count from a backend for the checkInPointId
+      // In a real app, this would be an actual API call to your service
+      final randomCount = Random().nextInt(100) + 1; // Random count between 1 and 100
+      emit(UserActionCheckInCountLoaded(checkInPointId, randomCount));
+    } catch (e) {
+      emit(UserActionCheckInCountError(checkInPointId, e.toString()));
+    }
+  }
+
+  void _cancelCheckInCountTimer() {
+    _checkInCountTimer?.cancel();
+    _checkInCountTimer = null;
+  }
+
+  @override
+  Future<void> close() {
+    _cancelCheckInCountTimer();
+    return super.close();
   }
 }
