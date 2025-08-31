@@ -1,61 +1,86 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:next_locate/features/check_in/data/datasources/check_in_remote_data_source.dart';
 import 'package:next_locate/features/check_in/data/models/check_in_point_model.dart';
+import 'package:next_locate/features/check_in/data/datasources/check_in_remote_data_source.dart'; // Added import for the interface
 
+// Exception for when an active check-in point already exists (though not used in current create logic)
 class ActiveCheckInPointExistsException implements Exception {
   final String message;
-  ActiveCheckInPointExistsException({this.message = "An active check-in point already exists. Cannot create a new one."});
+  ActiveCheckInPointExistsException(this.message);
 }
 
-class CheckInRemoteDataSourceImpl implements CheckInRemoteDataSource {
-  final FirebaseFirestore firestore;
-  static const String _appConfigCollection = 'app_config';
-  static const String _activeStatusDoc = 'active_check_in_point_status';
-  static const String _activePointIdField = 'activePointId';
-  static const String _checkInPointsCollection = 'check_in_points';
+// The duplicate abstract class CheckInRemoteDataSource has been removed from here.
 
-  CheckInRemoteDataSourceImpl({required this.firestore});
+class CheckInRemoteDataSourceImpl implements CheckInRemoteDataSource {
+  final FirebaseFirestore _firestore;
+
+  CheckInRemoteDataSourceImpl({required FirebaseFirestore firestore})
+      : _firestore = firestore;
 
   @override
   Future<void> createCheckInPoint(CheckInPointModel checkInPoint) async {
-    final activeStatusRef = firestore.collection(_appConfigCollection).doc(_activeStatusDoc);
-    final newCheckInPointRef = firestore.collection(_checkInPointsCollection).doc(); // Prepare a new doc ref to get ID
+    // Get a new document reference for the new check-in point *outside* the transaction.
+    final newCheckInPointRef = _firestore.collection('check_in_points').doc();
+    // Ensure the model has the ID that will be used for the document.
+    final pointWithId = checkInPoint.copyWith(id: newCheckInPointRef.id);
 
-    return firestore.runTransaction((transaction) async {
-      final activeStatusSnapshot = await transaction.get(activeStatusRef);
+    final activePointStatusRef =
+        _firestore.collection('app_config').doc('active_check_in_point_status');
 
-      if (activeStatusSnapshot.exists && activeStatusSnapshot.data()?[_activePointIdField] != null) {
-        // Optionally, you could fetch the actual active point to verify it still exists
-        // For now, just checking if the ID is set is enough to prevent a new active point.
-        throw ActiveCheckInPointExistsException();
+    // Run the transaction
+    return _firestore.runTransaction((transaction) async {
+      // READ PHASE: Get the current active check-in point status.
+      final activePointStatusSnapshot = await transaction.get(activePointStatusRef);
+
+      // WRITE PHASE
+      // 1. Delete the old active check-in point, if one exists.
+      if (activePointStatusSnapshot.exists &&
+          activePointStatusSnapshot.data() != null &&
+          activePointStatusSnapshot.data()!['activePointId'] != null) {
+        final oldActivePointId =
+            activePointStatusSnapshot.data()!['activePointId'] as String;
+        if (oldActivePointId.isNotEmpty) { // Ensure ID is not empty
+          final oldCheckInPointRef =
+              _firestore.collection('check_in_points').doc(oldActivePointId);
+          transaction.delete(oldCheckInPointRef);
+        }
       }
 
-      // If no active point, proceed to create the new one and set it as active
-      transaction.set(newCheckInPointRef, checkInPoint.copyWith(id: newCheckInPointRef.id).toFirestore());
-      
-      // Set the new check-in point as active
-      if (activeStatusSnapshot.exists) {
-        transaction.update(activeStatusRef, {_activePointIdField: newCheckInPointRef.id});
-      } else {
-        transaction.set(activeStatusRef, {_activePointIdField: newCheckInPointRef.id});
-      }
+      // 2. Create the new check-in point document.
+      // Assuming CheckInPointModel has a toFirestore() method
+      transaction.set(newCheckInPointRef, pointWithId.toFirestore()); 
+
+      // 3. Update the active_check_in_point_status document to point to the new ID.
+      transaction.set(
+        activePointStatusRef,
+        {'activePointId': newCheckInPointRef.id},
+        SetOptions(merge: true), // Use merge to handle creation or update.
+      );
     });
   }
 
   @override
   Future<List<CheckInPointModel>> getAllCheckInPoints() async {
-    final snapshot = await firestore.collection(_checkInPointsCollection).get();
+    final snapshot = await _firestore.collection('check_in_points').get();
     return snapshot.docs
         .map((doc) => CheckInPointModel.fromFirestore(doc))
         .toList();
   }
 
-  // You'll likely need a method to get the currently active check-in point
+  @override
   Future<CheckInPointModel?> getActiveCheckInPoint() async {
-    final activeStatusDoc = await firestore.collection(_appConfigCollection).doc(_activeStatusDoc).get();
-    if (activeStatusDoc.exists && activeStatusDoc.data()?[_activePointIdField] != null) {
-      final activePointId = activeStatusDoc.data()![_activePointIdField] as String;
-      final checkInPointDoc = await firestore.collection(_checkInPointsCollection).doc(activePointId).get();
+    final activePointStatusDoc = await _firestore
+        .collection('app_config')
+        .doc('active_check_in_point_status')
+        .get();
+
+    if (activePointStatusDoc.exists &&
+        activePointStatusDoc.data() != null &&
+        activePointStatusDoc.data()!['activePointId'] != null) {
+      final activePointId = activePointStatusDoc.data()!['activePointId'] as String;
+      if (activePointId.isEmpty) return null; // Guard against empty ID
+
+      final checkInPointDoc =
+          await _firestore.collection('check_in_points').doc(activePointId).get();
       if (checkInPointDoc.exists) {
         return CheckInPointModel.fromFirestore(checkInPointDoc);
       }
@@ -63,23 +88,11 @@ class CheckInRemoteDataSourceImpl implements CheckInRemoteDataSource {
     return null;
   }
 
-  // And a method to deactivate a check-in point (e.g., set activePointId to null)
+  @override
   Future<void> deactivateCurrentCheckInPoint() async {
-     final activeStatusRef = firestore.collection(_appConfigCollection).doc(_activeStatusDoc);
-     final activeStatusSnapshot = await activeStatusRef.get();
-     if (activeStatusSnapshot.exists) {
-        await activeStatusRef.update({_activePointIdField: null});
-     }
-     // If the document doesn't exist, there's nothing to deactivate, or you could create it with null.
-     // For simplicity, we only update if it exists.
+    final activePointStatusRef =
+        _firestore.collection('app_config').doc('active_check_in_point_status');
+    // Set activePointId to null or delete the field to indicate no active point
+    await activePointStatusRef.set({'activePointId': null}, SetOptions(merge: true));
   }
 }
-
-// Ensure your CheckInPointModel has `copyWith` and includes `id` if it wasn't already.
-// Example:
-// CheckInPointModel copyWith({String? id, ...}) {
-//   return CheckInPointModel(id: id ?? this.id, ...);
-// }
-// And that `toFirestore()` includes the id if you want it stored in the document,
-// and `fromFirestore` can read it.
-// If your model's ID is the Firestore document ID, `newCheckInPointRef.id` gives it to you.
